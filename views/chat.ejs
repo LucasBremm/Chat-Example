@@ -1,0 +1,320 @@
+<!DOCTYPE HTML>
+<html lang="pt-br">
+
+<head>
+  <meta charset="UTF-8">
+
+  <title>Multiroom Chat</title>
+
+  <link rel="shortcut icon" href="images/favicon.ico.png">
+
+  <!-- JQUERY -->
+  <script src="js/jquery-2.2.1.js"></script>
+
+  <!-- bootstrap - link cdn -->
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/css/bootstrap.min.css"
+    integrity="sha384-1q8mTJOASx8j1Au+a5WDVnPi2lkFfwwEAa8hDDdjZlpLegxhjVME1fgjWPGmkzs7" crossorigin="anonymous">
+
+  <!-- estilo -->
+  <link href="css/style.css" rel="stylesheet">
+
+  <script type="text/javascript">
+
+    $(document).ready(function () {
+      $("#exibe_chat").click(function () {
+        $("#conversa").show();
+        $("#participantes").hide();
+        ocultaNavbar();
+        window.scrollTo(0, document.body.scrollHeight);
+      });
+
+      $("#exibe_participantes").click(function () {
+        $("#participantes").show();
+        $("#conversa").hide();
+        ocultaNavbar();
+      });
+    });
+
+    function ocultaNavbar() {
+      $("#btn_navbar_toggle").attr("class", "navbar-toggle collapsed");
+      $("#navbar-collapse-1").attr("class", "navbar-collapse collapse");
+      $("#btn_navbar_toggle").attr("aria-expanded", "false");
+      $("#navbar-collapse-1").attr("aria-expanded", "false");
+    }
+  </script>
+</head>
+
+<body>
+
+
+  <nav class="navbar navbar-default navbar-fixed-top" style="z-index: 1;" role="navigation">
+    <div class="container">
+      <div class="navbar-header">
+        <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#navbar-collapse-1"
+          id="btn_navbar_toggle">
+          <span class="sr-only">Toggle navigation</span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+          <span class="icon-bar"></span>
+        </button>
+        <a class="navbar-brand" href="#">Multiroom Chat</a>
+      </div>
+
+
+      <div class="collapse navbar-collapse" id="navbar-collapse-1">
+        <ul class="nav navbar-nav">
+          <li>
+            <a href="#" id="exibe_chat">Chat</a>
+          </li>
+          <li>
+            <a href="#" id="exibe_participantes">Participantes</a>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="row conversa" id="conversa">
+      <div class="col-md-1"></div>
+      <div class="col-md-10" id="dialogos">
+      </div>
+      <div class="col-md-1"></div>
+
+    </div>
+
+    <div class="row participantes" id="participantes" style="display:none">
+      <div class="col-md-1"></div>
+      <div class="col-md-10" id="pessoas">
+      </div>
+      <div class="col-md-1"></div>
+
+    </div>
+  </div>
+
+  <nav class="navbar navbar-default navbar-fixed-bottom" role="navigation">
+    <div class="container">
+      <div class="panel-body campo-mensagem">
+
+        <div class="col-md-12">
+          <strong id="digitando" style="display: none;">esta digitando...</strong>
+          <div class="input-group">
+            <input type="text" class="form-control" placeholder="Mensagem" id="mensagem">
+            <input type="hidden" value="<%= apelido %>" id="apelido">
+            <span class="input-group-btn">
+              <button class="btn btn-default" type="button" id="enviar_mensagem">></button>
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </nav>
+
+  <script src="js/flash.min.js"></script>
+
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.6/js/bootstrap.min.js"
+    integrity="sha384-0mSbJDEHialfmuBBQP6A4Qrprq5OVfW37PRR3j5ELqxss1yVqOtnepnHVP9aJ7xS"
+    crossorigin="anonymous"></script>
+
+  <script src="http://localhost:3000/socket.io/socket.io.js"></script>
+  <script>
+    var audio = new Audio("audio/me-too.mp3")
+
+    var apelidos = []
+
+    var socket = io('http://localhost:3000', { query: `apelido=${$('#apelido').val()}` });
+
+    //controla se o enter foi pressionado enquanto editando o input
+    $("#mensagem").keypress(event => {
+      var keycode = (event.keyCode ? event.keyCode : event.which);
+      if (keycode == '13') {
+        timeoutFunction()
+        //se pressionado, chama o evento de click do botão
+        $("#enviar_mensagem").trigger("click")
+      } else {
+        onKeyDownNotEnter()
+      }
+      event.stopPropagation();
+    })
+
+    //Evento de clique no botão de envio
+    $('#enviar_mensagem').click(function () {
+      //emissão de mensagem com o conteudo do input
+      socket.emit(
+        'chat message',
+        {
+          apelido: $('#apelido').val(), // apelido do usuario
+          mensagem: $('#mensagem').val(), // conteudo da mensagem
+        }
+      );
+
+      //adiciona o conteudo da mensagem na tela local 
+      var html = '';
+
+      html += '<div class="dialogo">';
+      html += '<h4>' + $('#apelido').val() + '</h4>';
+      html += '<p>' + $('#mensagem').val() + '</p>';
+      html += '</div>';
+
+      $('#dialogos').append(html);
+
+      //scrolla a tela para a ultima mensagem
+      window.scrollTo(0, document.body.scrollHeight);
+
+      //esvazia conteudo do input
+      $('#mensagem').val("");
+    });
+
+    // evento de receber mensagem
+    socket.on('chat message', function (data) {
+      // cria mensagem na tela local
+      var html = '';
+
+      html += '<div class="dialogo">';
+      html += '<h4>' + data.apelido + '</h4>';
+      html += '<p>' + data.mensagem + '</p>';
+      html += '</div>';
+
+      $('#dialogos').append(html);
+
+      window.scrollTo(0, document.body.scrollHeight);
+
+      audio.play()
+    });
+
+    // evento de conexão com usuario
+    socket.on('user connect', function (data) {
+      apelidos = data.apelidos
+      if (data.messages) {
+        for (let i = 0; i < data.messages.length; i++) {
+          var html_mensagem = '';
+
+          html_mensagem += '<div class="dialogo">';
+          html_mensagem += '<h4>' + data.messages[i].apelido + '</h4>';
+          html_mensagem += '<p>' + data.messages[i].message + '</p>';
+          html_mensagem += '</div>';
+
+          $('#dialogos').append(html_mensagem);
+
+          window.scrollTo(0, document.body.scrollHeight);
+        }
+      }
+
+      flash(data.apelido + ' se Conectou', {
+        // background color
+        'bgColor': '#207720',
+        // text color
+        'ftColor': 'white',
+        // or 'bottom'
+        'vPosition': 'top',
+        // or 'left'
+        'hPosition': 'right',
+        // duration of animation
+        'fadeIn': 400,
+        'fadeOut': 400,
+        // click to close
+        'clickable': true,
+        // auto hides after a duration time
+        'autohide': true,
+        // timout
+        'duration': 4000
+      });
+
+      audio.play()
+
+      // coloca o usuario na lista de participantes
+      $('#pessoas').html("");
+
+      for (var apelido of apelidos) {
+        var html = '';
+
+        html += '<span class="participante">';
+        html += '<img src="images/ico_usuario.png">';
+        html += apelido;
+        html += '</span>';
+
+        $('#pessoas').append(html);
+      }
+
+    });
+
+    // evento de desconexão de usuario
+    socket.on('user disconnect', function (data) {
+      apelidos = data.apelidos
+
+      //gera caixa de dialogo com aviso de desconexão
+      flash(data.apelido + ' se Desconectou', {
+        // background color
+        'bgColor': '#f82d2d',
+        // text color
+        'ftColor': 'white',
+        // or 'bottom'
+        'vPosition': 'top',
+        // or 'left'
+        'hPosition': 'right',
+        // duration of animation
+        'fadeIn': 400,
+        'fadeOut': 400,
+        // click to close
+        'clickable': true,
+        // auto hides after a duration time
+        'autohide': true,
+        // timout
+        'duration': 4000
+      });
+
+      audio.play()
+
+      // ajusta a lista de participantes
+      $('#pessoas').html("");
+
+      for (var apelido of apelidos) {
+        var html = '';
+
+        html += '<span class="participante">';
+        html += '<img src="images/ico_usuario.png">';
+        html += apelido;
+        html += '</span>';
+
+        $('#pessoas').append(html);
+      }
+
+    });
+
+    // evento de inicio de escrita por um usuario
+    socket.on("typingMessage", function (apelido) {
+      $("#digitando").html("" + apelido + " esta digitando...")
+      $("#digitando").show()
+    })
+
+    // evento de usuario parou de digitar
+    socket.on("noLongerTypingMessage", function () {
+      $("#digitando").hide()
+    })
+
+    var typing = false;
+    var timeout = undefined;
+
+    function timeoutFunction() {
+      if (!$("#mensagem").val()) {
+        typing = false;
+        socket.emit("noLongerTypingMessage");
+      }
+    }
+
+    function onKeyDownNotEnter() {
+      if (typing == false) {
+        typing = true
+        socket.emit("typingMessage", $("#apelido").val());
+        timeout = setTimeout(timeoutFunction, 2000);
+      } else {
+        clearTimeout(timeout);
+        timeout = setTimeout(timeoutFunction, 2000);
+      }
+
+    }
+
+  </script>
+</body>
+
+</html>
